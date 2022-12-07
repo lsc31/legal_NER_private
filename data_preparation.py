@@ -1,4 +1,5 @@
 import re
+from urllib.error import HTTPError
 from urllib.request import urlopen, Request
 import copy
 from bs4 import BeautifulSoup as soup, Tag
@@ -134,16 +135,20 @@ def get_useful_text_from_indiankanoon_html_tag(ik_tag):
                     tag_txt = tag_txt + content.text
             else:
                 tag_txt = tag_txt + str(content)
+        print("inside get_useful",tag_txt)
         return tag_txt
 
 def get_text_from_indiankanoon_url(url):
-        req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        print("inside get_text")
+        req = Request(url, headers={'User-Agent': 'Chrome/107.0.5304.110'})
 
         try:
+            print("inside try")
             webpage = urlopen(req, timeout=10).read()
             page_soup = soup(webpage, "html.parser")
 
             first_preamble_tag = page_soup.find('pre')
+            print("calling get_useful")
             first_preamble_tag_text = get_useful_text_from_indiankanoon_html_tag(first_preamble_tag)
             preamble_ids=[]
             preamble_text = first_preamble_tag_text
@@ -200,20 +205,35 @@ def check_hidden_text_is_invalid(text):
     # else:
     #     return False
 def get_text_from_indiankanoon_url( url):
-        req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-
+        print("inside get_text")
+        req = Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.110 Safari/537.3',
+                                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+       'Accept-Encoding': 'none',
+       'Accept-Language': 'en-US,en;q=0.8',
+       'Connection': 'keep-alive'})
+        print("before try,req: ",req.__dict__)
         try:
-            webpage = urlopen(req, timeout=10).read()
+            print("inside try")
+            webpage = urlopen(req, timeout=50).read()
+            #webpage_sock = urllib.request.urlopen("https://indiankanoon.org/doc/542273/")
+            #webpage_sock = urllib.request.urlopen("http://hrlibrary.umn.edu/instree/ICTR/SERUSHAGO_ICTR-98-39/SERUSHAGO_ICTR-98-39-A_Reasons.htm")
+            #print("after webpage_sock")
+            #webpage = webpage_sock.read() 
+            print("read webpage")
             page_soup = soup(webpage, "html.parser")
 
             judgment_txt_tags = page_soup.find_all(['p', 'blockquote', 'pre'])
             judgment_txt = ''
+            print("before for")
             for judgment_txt_tag in judgment_txt_tags:
+                print("Inside for")
                 tag_txt = ''
                 if judgment_txt_tag.get('id') is not None and (judgment_txt_tag['id'].startswith('p_') or
                                                                judgment_txt_tag['id'].startswith('blockquote_') or
                                                                judgment_txt_tag['id'].startswith('pre_')):
                     for content in judgment_txt_tag.contents:
+                        print("inside second for")
                         if isinstance(content, Tag):
                             if content.get('class') is not None and 'hidden_text' in content['class']:
                                 if not check_hidden_text_is_invalid(content.text.strip()):
@@ -225,6 +245,7 @@ def get_text_from_indiankanoon_url( url):
 
                     if not judgment_txt_tag['id'].startswith('pre_'):
                         ##### remove unwanted formating except for pre_ tags
+                        print("inside if")
                         tag_txt = re.sub(r'\s+(?!\s*$)', ' ',
                                          tag_txt)  ###### replace the multiple spaces, newlines with space except for the ones at the end.
                         tag_txt = re.sub(r'([.\"\?])\n', r'\1 \n\n',
@@ -233,7 +254,8 @@ def get_text_from_indiankanoon_url( url):
 
                     judgment_txt = judgment_txt + tag_txt
 
-        except:
+        except HTTPError as e:
+            print("inside except", e)
             judgment_txt = ''
 
             ###### remove known footer, header patterns
@@ -251,9 +273,10 @@ def get_text_from_indiankanoon_url( url):
             else:
                 judgment_txt = re.sub(pattern_dict['pattern'], "", judgment_txt)
 
+        print(judgment_txt.strip())
         return judgment_txt.strip()
 
-def get_sentence_docs(doc_judgment,nlp_judgment):
+def get_sentence_docs(_judgment,nlp_judgment):
     sentences=[sent.text for sent in doc_judgment.sents]
     docs=[]
     for doc in nlp_judgment.pipe(sentences):
